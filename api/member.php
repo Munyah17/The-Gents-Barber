@@ -138,7 +138,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($pending >= 5) jsonOut(['ok' => false, 'error' => 'Too many pending top-ups — please wait for confirmation.'], 429);
         $d['walletTxns'][] = ['id' => 'TXN-' . strtoupper(bin2hex(random_bytes(5))), 'email' => $email, 'kind' => 'topup', 'amount' => $amt, 'status' => 'pending', 'created' => date('c')];
         storeData($d);
-        jsonOut(['ok' => true, 'message' => 'Top-up request submitted — the salon will confirm it shortly.']);
+        jsonOut(['ok' => true, 'message' => 'Top-up request submitted — the team will confirm it shortly.']);
     }
 
     if ($action === 'issue-giftcard') {

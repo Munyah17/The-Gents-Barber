@@ -150,7 +150,7 @@ function admBranches(top) {
 }
 
 function admBranchForm(id) {
-  const x = id ? db.branches.find(b => b.id === id) : { name: '', place: '', hours: 'Mon–Sat · 09:00–18:00', photo: 'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?w=900&q=80' };
+  const x = id ? db.branches.find(b => b.id === id) : { name: '', place: '', hours: 'Mon–Sat · 09:00–18:00', photo: '' };
   if (!x) return;
   modal(id ? 'Edit Branch' : 'Add Branch', `<form id="adm-branch-form"><input type="hidden" name="id" value="${esc(id || '')}"><div class="form-group"><label class="form-label">Branch name</label><input class="field" required name="name" value="${esc(x.name)}"></div><div class="form-group"><label class="form-label">Address / area</label><input class="field" required name="place" value="${esc(x.place || '')}"></div><div class="form-group"><label class="form-label">Opening hours</label><input class="field" name="hours" value="${esc(x.hours || '')}"></div><div class="form-group"><label class="form-label">Photo URL</label><input class="field" name="photo" value="${esc(x.photo || '')}"></div><button class="btn btn-gold">${id ? 'Save Changes' : 'Add Branch'}</button></form>`);
 }
@@ -161,7 +161,7 @@ function admBarbers(top) {
 }
 
 function admBarberForm(id) {
-  const x = id ? barber(id) : { name: '', role: 'Barber', branch: db.branches[0] ? db.branches[0].id : '', photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=620&q=80', services: db.services.map(s => s.id) };
+  const x = id ? barber(id) : { name: '', role: 'Barber', branch: db.branches[0] ? db.branches[0].id : '', photo: '', services: db.services.map(s => s.id) };
   if (id && !db.barbers.find(b => b.id === id)) return;
   modal(id ? 'Edit Barber' : 'Add Barber', `<form id="adm-barber-form"><input type="hidden" name="id" value="${esc(id || '')}"><div class="form-group"><label class="form-label">Name</label><input class="field" required name="name" value="${esc(id ? x.name : '')}"></div><div class="form-group"><label class="form-label">Role</label><input class="field" name="role" value="${esc(id ? x.role : 'Barber')}"></div><div class="form-group"><label class="form-label">Branch</label><select class="field" name="branch">${db.branches.map(b => `<option value="${b.id}" ${x.branch === b.id ? 'selected' : ''}>${esc(b.name)}</option>`).join('')}</select></div><div class="form-group"><label class="form-label">Photo URL</label><input class="field" name="photo" value="${esc(x.photo || '')}"></div><div class="form-group"><label class="form-label">Bio (shown on profile cards)</label><textarea class="field" name="bio" rows="2" placeholder="e.g. 8 years of precision cutting">${esc(x.bio || '')}</textarea></div><div class="form-group"><label class="form-label">Services</label><div style="display:grid;gap:6px">${db.services.map(s => `<label class="small" style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="services" value="${s.id}" ${(x.services || []).includes(s.id) ? 'checked' : ''}> ${esc(s.name)}</label>`).join('')}</div></div><button class="btn btn-gold">${id ? 'Save Changes' : 'Add Barber'}</button></form>`);
 }
@@ -249,7 +249,7 @@ function admExportJSON() {
 }
 
 // ---------- Events ----------
-// Decline always asks for a reason — intercept before the prototype's instant handler
+// Decline always asks for a reason — intercept before the core handler
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-action^="decline:"]');
   if (!el || page !== 'admin') return;
@@ -347,12 +347,12 @@ document.addEventListener('submit', async e => {
   if (form.getAttribute('id') === 'adm-branch-form') {
     e.preventDefault(); const v = Object.fromEntries(new FormData(form));
     if (v.id) { const x = db.branches.find(b => b.id === v.id); if (x) Object.assign(x, { name: v.name, place: v.place, hours: v.hours, photo: v.photo || x.photo }); toast('Branch updated.'); }
-    else { db.branches.push({ id: v.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now().toString().slice(-4), name: v.name, place: v.place, hours: v.hours || 'Mon–Sat · 09:00–18:00', photo: v.photo || 'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?w=900&q=80' }); toast('Branch added.'); }
+    else { db.branches.push({ id: v.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now().toString().slice(-4), name: v.name, place: v.place, hours: v.hours || 'Mon–Sat · 09:00–18:00', photo: v.photo || '' }); toast('Branch added.'); }
     save(); closeModal(); render(); return;
   }
   if (form.getAttribute('id') === 'adm-barber-form') {
     e.preventDefault(); const fd = new FormData(form); const v = Object.fromEntries(fd); const sv = fd.getAll('services');
-    const data = { name: v.name, role: v.role || 'Barber', branch: v.branch, photo: v.photo || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=620&q=80', bio: v.bio || '', services: sv.length ? sv : db.services.map(s => s.id) };
+    const data = { name: v.name, role: v.role || 'Barber', branch: v.branch, photo: v.photo || '', bio: v.bio || '', services: sv.length ? sv : db.services.map(s => s.id) };
     if (v.id) { const x = db.barbers.find(b => b.id === v.id); if (x) Object.assign(x, data); toast('Barber updated.'); }
     else { db.barbers.push({ id: 'barber' + Date.now(), ...data }); toast('Barber added.'); }
     save(); closeModal(); render(); return;

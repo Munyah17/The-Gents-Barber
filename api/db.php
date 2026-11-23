@@ -107,6 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         storeData($merged);
         try { sendBookingNotices(bookingDiffs($stored ?: [], $merged)); } catch (Throwable $t) {}
+        try { sendContactNotices(contactDiffs($stored ?: [], $merged)); } catch (Throwable $t) {}
         jsonOut(['ok' => true, 'rev' => dataRev()]);
     }
 
@@ -124,6 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $merged = mergePublicData($stored, $inc);
     storeData($merged);
     try { sendBookingNotices(bookingDiffs($stored, $merged)); } catch (Throwable $t) {}
+    try { sendContactNotices(contactDiffs($stored, $merged)); } catch (Throwable $t) {}
     jsonOut(['ok' => true, 'rev' => dataRev(), 'data' => publicData($merged)]);
 }
 

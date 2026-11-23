@@ -27,7 +27,7 @@ function admContent(top) {
 
 // ---------- Hero banners ----------
 function heroPanel() {
-  const slides = db.hero && db.hero.length ? db.hero : HE;
+  const slides = db.hero || [];
   return `<div class="panel"><div class="panel-head"><h3>Hero Banners (${slides.length})</h3><div class="auth-actions">${hasPerm('content.manage') ? button('+ Add Slide', 'ct-hero-add', 'btn btn-gold btn-sm') : ''}</div></div>
   <p class="muted small" style="margin-top:0">Slides appear in order on the homepage hero. The first slide shows on load.</p>
   <div class="ct-hero-list">${slides.map((s, i) => `<div class="ct-hero-item">
@@ -49,7 +49,7 @@ function ctHeroForm(i) {
 
 // ---------- Gallery ----------
 function galleryPanel() {
-  const items = db.gallery && db.gallery.length ? db.gallery : GE;
+  const items = db.gallery || [];
   const cats = [...new Set(items.map(x => x.category).filter(Boolean))];
   return `<div class="panel" style="margin-top:24px"><div class="panel-head"><h3>Gallery (${items.length})</h3><div class="auth-actions">${hasPerm('content.manage') ? button('+ Add Image', 'ct-gal-add', 'btn btn-gold btn-sm') : ''}</div></div>
   <p class="muted small" style="margin-top:0">Categories: ${cats.map(c => `<span class="badge status confirmed" style="margin-right:4px">${esc(c)}</span>`).join('') || '—'}</p>
@@ -63,7 +63,7 @@ function galleryPanel() {
 function ctGalleryForm(i) {
   const g = i >= 0 ? (db.gallery || [])[i] : null;
   if (i >= 0 && !g) return;
-  const cats = [...new Set(((db.gallery && db.gallery.length ? db.gallery : GE).map(x => x.category).filter(Boolean)))];
+  const cats = [...new Set(((db.gallery || []).map(x => x.category).filter(Boolean)))];
   modal(i >= 0 ? 'Edit Gallery Image' : 'Add Gallery Image', `<form id="ct-gal-form"><input type="hidden" name="idx" value="${i}">
   ${ctMediaField('Image', 'url', g ? g.url : '', 'https://… or /uploads/…')}
   <div class="form-group"><label class="form-label">Caption / alt text</label><input class="field" name="alt" value="${esc(g ? g.alt : '')}" placeholder="e.g. Barbershop interior"></div>
@@ -98,7 +98,7 @@ document.addEventListener('click', async e => {
   if (c === 'ct-hero-del') {
     const s = (db.hero || [])[Number(v)]; if (!s) return;
     if (!confirm('Delete this hero slide?')) return;
-    db.hero.splice(Number(v), 1); if (!db.hero.length) db.hero = HE.map(x => ({ ...x }));
+    db.hero.splice(Number(v), 1); if (!db.hero.length) db.hero = [];
     save(); toast('Slide deleted.'); render(); return;
   }
   if (c === 'ct-hero-up' || c === 'ct-hero-down') {
@@ -114,7 +114,7 @@ document.addEventListener('click', async e => {
     const uses = ctInUse(g.url);
     if (uses.length && !confirm('This image is also used as ' + uses.join(', ') + '. Delete from gallery anyway?')) return;
     if (!confirm('Delete this gallery image?')) return;
-    db.gallery.splice(Number(v), 1); if (!db.gallery.length) db.gallery = GE.map(x => ({ ...x }));
+    db.gallery.splice(Number(v), 1); if (!db.gallery.length) db.gallery = [];
     save(); toast('Image deleted.'); render(); return;
   }
 });

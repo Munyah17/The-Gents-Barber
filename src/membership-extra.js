@@ -2,7 +2,7 @@
 // Injected inside app.js IIFE by _build.js. Adds the admin "Membership" tab:
 // tier plans, member directory, wallet balances/top-ups, gift cards.
 
-const memTiers = () => (db.membershipTiers && db.membershipTiers.length ? db.membershipTiers : (db.membershipTiers = structuredClone(TIERS)));
+const memTiers = () => db.membershipTiers || (db.membershipTiers = []);
 const memMembers = () => db.members || (db.members = []);
 const memWallets = () => { if (!Array.isArray(db.wallets)) db.wallets = Object.entries(db.wallets || {}).map(([email, x]) => ({ email, balance: (x && x.balance) || 0 })); return db.wallets; };
 const memGiftCards = () => db.giftCards || (db.giftCards = []);
