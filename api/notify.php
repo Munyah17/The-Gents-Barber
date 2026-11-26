@@ -107,7 +107,7 @@ function sendBookingNotices(array $events): void {
             if ($company) {
                 $html = bookingShell('New Booking Request',
                     '<p style="color:#444">A new appointment request needs your attention:</p>' . bookingRows($b)
-                    . '<p style="margin-top:16px"><a href="' . (defined('SITE_URL') ? SITE_URL : '') . '/admin" style="background:#d4af37;color:#111;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:bold">Review in Admin → Requests</a></p>');
+                    . '<p style="margin-top:16px"><a href="' . escH(rtrim(defined('SITE_URL') ? SITE_URL : 'https://thegents.co.zw', '/')) . '/admin" style="background:#d4af37;color:#111;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:bold">Review in Admin → Requests</a></p>');
                 sendMail($company, 'New booking request — ' . ($b['name'] ?? 'client') . ' (' . ($b['date'] ?? '') . ')', $html);
             }
             // Client: confirmation

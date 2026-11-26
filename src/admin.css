@@ -88,3 +88,5 @@
 .mem-swatch{display:inline-block;width:16px;height:16px;border-radius:5px;vertical-align:-3px}
 .mem-no{font-family:monospace;font-size:12px;color:var(--gold)}
 
+
+.perm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:4px 14px;margin-top:6px}

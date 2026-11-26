@@ -7,6 +7,14 @@ function accountCheck(bool $ok, string $message, int $code = 400): void {
     if (!$ok) throw new InvalidArgumentException($message, $code);
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    if (!isAdmin()) jsonOut(['ok' => false, 'error' => 'Please sign in again.'], 401);
+    ensureSchema();
+    $staffCreds = db()->query('SELECT staff_key, email FROM staff_users ORDER BY email')->fetchAll(PDO::FETCH_ASSOC);
+    $admins = db()->query('SELECT id, username, email FROM admin_users ORDER BY email')->fetchAll(PDO::FETCH_ASSOC);
+    $clients = db()->query('SELECT id, name, phone, email FROM clients ORDER BY name')->fetchAll(PDO::FETCH_ASSOC);
+    jsonOut(['ok' => true, 'staff' => $staffCreds, 'adminUsers' => $admins, 'clients' => $clients]);
+}
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonOut(['ok' => false, 'error' => 'method not allowed'], 405);
 if (!isAdmin()) jsonOut(['ok' => false, 'error' => 'Please sign in again.'], 401);
 ensureSchema();
@@ -54,7 +62,22 @@ try {
         $password = (string)($in['password'] ?? '');
         accountCheck(filter_var($email, FILTER_VALIDATE_EMAIL) !== false, 'A valid email is required.');
         accountCheck($password === '' || (strlen($password) >= 6 && strlen($password) <= 72), 'Password must be 6–72 bytes.');
-        accountCheck($index !== null || $password !== '', 'A password is required for a new account.');
+        // A credential row may already exist (e.g. self-registered) without a profile —
+        // in that case the new profile adopts it instead of failing on uniqueness.
+        $adoptStaffKey = null;
+        $adoptClientId = null;
+        if ($index === null) {
+            if ($staffMode) {
+                $st = db()->prepare('SELECT staff_key FROM staff_users WHERE LOWER(email) = ?');
+                $st->execute([$email]);
+                $adoptStaffKey = $st->fetchColumn() ?: null;
+            } else {
+                $st = db()->prepare('SELECT id FROM clients WHERE LOWER(email) = ?');
+                $st->execute([$email]);
+                $adoptClientId = $st->fetchColumn() ?: null;
+            }
+        }
+        accountCheck($index !== null || $password !== '' || $adoptStaffKey !== null || $adoptClientId !== null, 'A password is required for a new account.');
         foreach ($items as $i => $item) {
             accountCheck($i === $index || strtolower(trim($item['email'] ?? '')) !== $email, 'Email is already in use.', 409);
         }
@@ -80,6 +103,7 @@ try {
             $st = db()->prepare('SELECT staff_key FROM staff_users WHERE LOWER(email) = ?');
             $st->execute([$email]);
             $existingKey = $st->fetchColumn();
+            if ($index === null && $existingKey !== false) $record['id'] = $existingKey;
             accountCheck($existingKey === false || $existingKey === $record['id'], 'Email is already in use by another staff credential.', 409);
             $record['username'] = $username;
             if ($canManage) {
@@ -122,7 +146,8 @@ try {
             $clientId = $index === null ? false : $st->fetchColumn();
             $st = db()->prepare('SELECT id FROM clients WHERE LOWER(email) = ?');
             $st->execute([$email]);
-            foreach ($st->fetchAll() as $c) accountCheck((string)$c['id'] === (string)$clientId, 'A login account with this email already exists.', 409);
+            foreach ($st->fetchAll() as $c) accountCheck((string)$c['id'] === (string)($clientId !== false ? $clientId : $adoptClientId), 'A login account with this email already exists.', 409);
+            if ($clientId === false) $clientId = $adoptClientId;
             accountCheck($clientId !== false || $password !== '', 'Set a password to enable login for this client.');
             if ($clientId === false) {
                 $st = db()->prepare('INSERT INTO clients (name, phone, email, password_hash) VALUES (?, ?, ?, ?)');

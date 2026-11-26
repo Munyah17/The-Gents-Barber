@@ -81,3 +81,35 @@
   .stat-grid{grid-template-columns:1fr 1fr;gap:10px}
   .cal-day{min-height:46px}
 }
+
+/* ===== Overflow safety: tablets, foldables, small laptops ===== */
+@media(max-width:800px){
+  /* Hero slide titles must wrap — the build injects white-space:nowrap globally */
+  .slider-content h1{white-space:normal}
+  /* Headers & action rows wrap instead of pushing content off-screen */
+  .panel-head,.dash-top,.payslip-head,.hero-actions{flex-wrap:wrap}
+  .row-actions,.appointment{flex-wrap:wrap}
+  /* Booking steps scroll horizontally rather than overflowing */
+  .steps{overflow-x:auto;scrollbar-width:none}
+  .steps::-webkit-scrollbar{display:none}
+  .step{flex:none}
+  /* Grid tracks can shrink below content size — minmax(0,1fr) prevents overspill */
+  .grid-3,.grid-4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .contact-grid,.review-grid,.dash-grid{grid-template-columns:minmax(0,1fr)}
+  .footer-grid,.service-grid,.branch-grid,.stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cal-dows,.cal-grid{grid-template-columns:repeat(7,minmax(0,1fr))}
+  .cal-day{min-width:0}
+  .date-grid{grid-template-columns:repeat(7,minmax(0,1fr))}
+  .date-choice{min-width:0}
+  .kv{grid-template-columns:96px minmax(0,1fr)}
+  .payslip{max-width:100%;overflow-wrap:anywhere}
+  .perm-grid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
+}
+@media(max-width:550px){
+  .grid-3,.grid-4,.form-grid,.contact-grid,.review-grid,.dash-grid,.footer-grid,.service-grid,.branch-grid{grid-template-columns:minmax(0,1fr)}
+  .kv{grid-template-columns:78px minmax(0,1fr)}
+  .mcard-details{grid-template-columns:1fr}
+  .ct-upload-row input[type=file]{max-width:100%}
+  .perm-grid{grid-template-columns:1fr}
+}

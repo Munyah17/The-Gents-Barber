@@ -61,6 +61,14 @@ const STAFF_SEED = [{ id: 'admin1', username: 'Munyah', name: 'Munyah', email: '
 const ROLES = ['Receptionist', 'Manager', 'Super Admin'];
 
 function safeSS(k) { try { return sessionStorage.getItem(k) } catch (e) { return null } }
+let loginAccounts = null;
+function fetchLoginAccounts() {
+  if (loginAccounts !== null || !/^https?:$/.test(location.protocol)) return;
+  loginAccounts = { staff: [], clients: [] };
+  fetch('api/accounts.php', { credentials: 'same-origin' }).then(r => r.json()).then(j => {
+    if (j && j.ok) { loginAccounts = { staff: j.staff || [], clients: j.clients || [] }; if (page === 'admin' && (dashboardTab === 'staff' || dashboardTab === 'users')) render(); }
+  }).catch(() => {});
+}
 function staffAll() { if (!Array.isArray(db.staff)) db.staff = JSON.parse(JSON.stringify(STAFF_SEED)); if (!Array.isArray(db.roles)) db.roles = roleSeeds(); return db.staff; }
 function roleSeeds() {
   return [
@@ -125,10 +133,14 @@ const money0 = n => '$' + Number(n || 0).toFixed(2);
 // =====================================================================
 function admUsers(top) {
   const list = clientProfiles().slice().sort((a, b) => a.name.localeCompare(b.name));
+  fetchLoginAccounts();
+  const profEmails = new Set(list.map(c => String(c.email || '').toLowerCase()).filter(Boolean));
+  const orphanClients = (loginAccounts ? loginAccounts.clients : []).filter(a => a.email && !profEmails.has(String(a.email).toLowerCase()));
+  const orphanPanel = orphanClients.length ? `<div class="panel" style="margin-top:20px"><div class="panel-head"><h3>Login Accounts Without Profile (${orphanClients.length})</h3></div><p class="muted small" style="margin-top:0">These client accounts can sign in but have no profile yet — create one to manage them here.</p><div class="table-wrap"><table><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Actions</th></tr></thead><tbody>${orphanClients.map(a => `<tr><td>${esc(a.name || '—')}</td><td>${esc(a.phone || '—')}</td><td>${esc(a.email)}</td><td>${hasPerm('usermgmt.manage') ? `<button class="btn btn-sm" data-action="usr-adopt:${esc(a.email)}">Create Profile</button>` : ''}</td></tr>`).join('')}</tbody></table></div></div>` : '';
   const spend = {};
   db.bookings.forEach(b => { const k = b.phone || b.email || b.name; spend[k] = (spend[k] || 0) + (b.status !== 'Cancelled' && b.status !== 'Declined' ? Number(service(b.service).price || 0) : 0); });
-  return top + `<div class="panel"><div class="panel-head"><h3>Client Profiles (${list.length})</h3><div class="auth-actions">${ioButtons('clients', true)}${hasPerm('usermgmt.manage') ? button('+ Add Client', 'usr-add', 'btn btn-gold btn-sm') : ''}</div></div>
-  <div class="table-wrap"><table><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Bookings</th><th>Total Spend</th><th>Status</th><th>Actions</th></tr></thead><tbody>${list.map(c => { const bk = db.bookings.filter(b => (b.phone || b.email || b.name) === (c.phone || c.email || c.name)); const sp = spend[c.phone || c.email || c.name] || 0; const plat = sp >= 100; return `<tr><td><strong>${esc(c.name)}</strong>${plat ? ' <span class="badge status completed" style="font-size:9px">PLATINUM</span>' : ''}</td><td>${esc(c.phone || '—')}</td><td>${esc(c.email || '—')}</td><td>${bk.length}</td><td>${money(sp)}</td><td>${c.status === 'active' ? '<span class="badge status completed">Active</span>' : '<span class="badge status cancelled">Suspended</span>'}</td><td>${hasPerm('usermgmt.manage') ? `<div class="row-actions"><button class="btn btn-sm" data-action="usr-edit:${c.id}">Edit</button><button class="btn btn-sm" data-action="usr-del:${c.id}">Del</button></div>` : ''}</td></tr>`; }).join('')}</tbody></table>${list.length ? '' : '<div class="empty">No client profiles yet.</div>'}</div></div>`;
+  return top + `<div class="panel"><div class="panel-head"><h3>Clients (${list.length})</h3><div class="auth-actions">${ioButtons('clients', true)}${hasPerm('usermgmt.manage') ? button('+ Add Client', 'usr-add', 'btn btn-gold btn-sm') : ''}</div></div>
+  <div class="table-wrap"><table><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Bookings</th><th>Total Spend</th><th>Status</th><th>Actions</th></tr></thead><tbody>${list.map(c => { const bk = db.bookings.filter(b => (b.phone || b.email || b.name) === (c.phone || c.email || c.name)); const sp = spend[c.phone || c.email || c.name] || 0; const plat = sp >= 100; return `<tr><td><strong>${esc(c.name)}</strong>${plat ? ' <span class="badge status completed" style="font-size:9px">PLATINUM</span>' : ''}</td><td>${esc(c.phone || '—')}</td><td>${esc(c.email || '—')}</td><td>${bk.length}</td><td>${money(sp)}</td><td>${c.status === 'active' ? '<span class="badge status completed">Active</span>' : '<span class="badge status cancelled">Suspended</span>'}</td><td>${hasPerm('usermgmt.manage') ? `<div class="row-actions"><button class="btn btn-sm" data-action="usr-edit:${c.id}">Edit</button><button class="btn btn-sm" data-action="usr-del:${c.id}">Del</button></div>` : ''}</td></tr>`; }).join('')}</tbody></table>${list.length ? '' : '<div class="empty">No client profiles yet.</div>'}</div></div>${orphanPanel}`;
 }
 
 function usrForm(id) {
@@ -146,8 +158,22 @@ function admStaff(top) {
   const roleName = s => { const r = roles.find(x => x.id === (s.roleId || '') || x.name === (s.roleId || s.role)); return r ? r.name : (s.role || '—'); };
   const permCount = s => s.permissions === '*' ? 'All' : expandPerms([...(s.permissions || []), ...((roles.find(x => x.id === (s.roleId || '') || x.name === (s.roleId || s.role)) || {}).perms || [])]).length + ' perms';
   const canManage = hasPerm('staffmgmt.manage');
+  fetchLoginAccounts();
+  const staffEmails = new Set(list.map(s => String(s.email || '').toLowerCase()).filter(Boolean));
+  const orphanStaff = (loginAccounts ? loginAccounts.staff : []).filter(a => a.email && !staffEmails.has(String(a.email).toLowerCase()));
+  const orphanPanel = orphanStaff.length ? `<div class="panel" style="margin-top:20px"><div class="panel-head"><h3>Login Accounts Without Profile (${orphanStaff.length})</h3></div><p class="muted small" style="margin-top:0">These staff credentials can sign in but have no profile yet — create one to manage them here.</p><div class="table-wrap"><table><thead><tr><th>Email</th><th>Actions</th></tr></thead><tbody>${orphanStaff.map(a => `<tr><td>${esc(a.email)}</td><td>${canManage ? `<button class="btn btn-sm" data-action="stf-adopt:${esc(a.email)}">Create Profile</button>` : ''}</td></tr>`).join('')}</tbody></table></div></div>` : '';
   return top + admRolesPanel(canManage) + `<div class="panel"><div class="panel-head"><h3>Staff & Admins (${list.length})</h3><div class="auth-actions">${canManage ? ioButtons('staff', true) + button('+ Add Staff', 'stf-add', 'btn btn-gold btn-sm') : ''}</div></div>
-  <div class="table-wrap"><table><thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Role</th><th>Permissions</th><th>Status</th><th>Actions</th></tr></thead><tbody>${list.map(s => `<tr><td><strong>${esc(s.name)}</strong></td><td>${esc(s.username)}</td><td>${esc(s.email)}</td><td>${esc(roleName(s))}</td><td>${s.permissions === '*' ? 'All' : permCount(s)}</td><td>${s.status === 'active' ? '<span class="badge status completed">Active</span>' : '<span class="badge status cancelled">Suspended</span>'}</td><td><div class="row-actions">${canManage || s.id === (admMe() || {}).id ? `<button class="btn btn-sm" data-action="stf-edit:${s.id}">Edit</button>` : ''}${!s.protected && canManage ? `<button class="btn btn-sm" data-action="stf-perms:${s.id}">Perms</button><button class="btn btn-sm" data-action="stf-del:${s.id}">Del</button>` : ''}</div></td></tr>`).join('')}</tbody></table></div></div>`;
+  <div class="table-wrap"><table><thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Role</th><th>Permissions</th><th>Status</th><th>Actions</th></tr></thead><tbody>${list.map(s => `<tr><td><strong>${esc(s.name)}</strong></td><td>${esc(s.username)}</td><td>${esc(s.email)}</td><td>${esc(roleName(s))}</td><td>${s.permissions === '*' ? 'All' : permCount(s)}</td><td>${s.status === 'active' ? '<span class="badge status completed">Active</span>' : '<span class="badge status cancelled">Suspended</span>'}</td><td><div class="row-actions">${canManage || s.id === (admMe() || {}).id ? `<button class="btn btn-sm" data-action="stf-edit:${s.id}">Edit</button>` : ''}${!s.protected && canManage ? `<button class="btn btn-sm" data-action="stf-perms:${s.id}">Perms</button><button class="btn btn-sm" data-action="stf-del:${s.id}">Del</button>` : ''}</div></td></tr>`).join('')}</tbody></table></div></div>${orphanPanel}`;
+}
+
+function stfAdoptForm(email) {
+  const a = ((loginAccounts && loginAccounts.staff) || []).find(x => String(x.email).toLowerCase() === String(email).toLowerCase()) || { email };
+  modal('Create Staff Profile', `<form id="stf-form"><input type="hidden" name="id" value=""><div class="form-grid"><div class="form-group"><label class="form-label">Full name</label><input class="field" required name="name"></div><div class="form-group"><label class="form-label">Username</label><input class="field" required name="username"></div><div class="form-group"><label class="form-label">Email</label><input class="field" type="email" required name="email" value="${esc(a.email || '')}"></div><div class="form-group"><label class="form-label">Job title</label><input class="field" name="role"></div><div class="form-group"><label class="form-label">Access level</label><select class="field" name="access"><option value="staff">Staff — limited permissions</option><option value="admin">Administrator — full access</option></select></div><div class="form-group"><label class="form-label">Permission role</label><select class="field" name="roleId"><option value="">— none —</option>${(db.roles || []).map(r => `<option value="${r.id}">${esc(r.name)} (role)</option>`).join('')}</select></div><div class="form-group"><label class="form-label">Password (blank = keep existing)</label><input class="field" type="password" name="password" minlength="6" maxlength="72" autocomplete="new-password"><p class="muted small" style="margin:4px 0 0">A login credential already exists for this email — the profile will link to it.</p></div><div class="form-group"><label class="form-label">Status</label><select class="field" name="status"><option value="active">Active</option><option value="suspended">Suspended</option></select></div></div><button type="submit" class="btn btn-gold">Create Profile</button></form>`);
+}
+
+function usrAdoptForm(email) {
+  const a = ((loginAccounts && loginAccounts.clients) || []).find(x => String(x.email).toLowerCase() === String(email).toLowerCase()) || { email };
+  modal('Create Client Profile', `<form id="usr-form"><input type="hidden" name="id" value=""><div class="form-grid"><div class="form-group"><label class="form-label">Full name</label><input class="field" required name="name" value="${esc(a.name || '')}"></div><div class="form-group"><label class="form-label">Phone</label><input class="field" name="phone" value="${esc(a.phone || '')}"></div><div class="form-group"><label class="form-label">Email</label><input class="field" type="email" name="email" value="${esc(a.email || '')}"></div><div class="form-group"><label class="form-label">Status</label><select class="field" name="status"><option value="active">Active</option><option value="suspended">Suspended</option></select></div></div><div class="form-group"><label class="form-label">Password (blank = keep existing)</label><input class="field" type="password" name="password" minlength="6" maxlength="72" autocomplete="new-password"><p class="muted small" style="margin:4px 0 0">A login account already exists for this email — the profile will link to it.</p></div><div class="form-group"><label class="form-label">Notes</label><input class="field" name="note"></div><button type="submit" class="btn btn-gold">Create Profile</button></form>`);
 }
 
 function admRolesPanel(canManage) {
@@ -158,7 +184,7 @@ function admRolesPanel(canManage) {
 }
 
 function permPicker(sel) {
-  return PERM_GROUPS.map(([g, items]) => `<div data-pgroup="${esc(g)}" style="margin:12px 0"><div class="eyebrow" style="font-size:10px;display:flex;justify-content:space-between;align-items:center">${esc(g)} <label class="small muted" style="font-weight:400;text-transform:none;letter-spacing:0"><input type="checkbox" class="perm-all"> all</label></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:4px 14px;margin-top:6px">${items.map(([k, l]) => `<label class="small" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="perm" value="${k}" ${sel.includes(k) ? 'checked' : ''} style="margin-top:2px"> <span>${l}</span></label>`).join('')}</div></div>`).join('');
+  return PERM_GROUPS.map(([g, items]) => `<div data-pgroup="${esc(g)}" style="margin:12px 0"><div class="eyebrow" style="font-size:10px;display:flex;justify-content:space-between;align-items:center">${esc(g)} <label class="small muted" style="font-weight:400;text-transform:none;letter-spacing:0"><input type="checkbox" class="perm-all"> all</label></div><div class="perm-grid">${items.map(([k, l]) => `<label class="small" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="perm" value="${k}" ${sel.includes(k) ? 'checked' : ''} style="margin-top:2px"> <span>${l}</span></label>`).join('')}</div></div>`).join('');
 }
 
 function roleForm(id) {
@@ -259,7 +285,7 @@ function runPayroll() {
 function payslip(id) {
   const p = acct().payroll.find(x => x.id === id); if (!p) return;
   const s = staffAll().find(x => x.id === p.staffId) || {};
-  modal('Payslip ' + esc(p.id), `<div class="payslip"><div class="payslip-head"><div><div class="eyebrow">THE GENT’S BARBER & GENTS GROOMING CENTER</div><h3>Payslip</h3></div><div class="small muted" style="text-align:right">${esc(p.month)}<br>${p.status === 'paid' ? 'PAID' : 'PENDING'}</div></div>
+  modal('Payslip ' + esc(p.id), `<div class="payslip"><div class="payslip-head"><div><div class="eyebrow">THE GENT’S BARBER & GROOMING CENTER</div><h3>Payslip</h3></div><div class="small muted" style="text-align:right">${esc(p.month)}<br>${p.status === 'paid' ? 'PAID' : 'PENDING'}</div></div>
   <div class="kv" style="margin:16px 0"><span>Employee</span><b>${esc(p.name)}</b><span>Role</span><b>${esc(p.role)}</b><span>Employee ID</span><b>${esc(p.staffId)}</b></div>
   <table style="width:100%;font-size:13px"><thead><tr><th style="text-align:left">Earnings</th><th style="text-align:right">Amount</th></tr></thead><tbody><tr><td>Basic Salary</td><td style="text-align:right">${money(p.gross)}</td></tr></tbody></table>
   <table style="width:100%;font-size:13px;margin-top:8px"><thead><tr><th style="text-align:left">Deductions</th><th style="text-align:right">Amount</th></tr></thead><tbody><tr><td>Statutory / Other</td><td style="text-align:right">${money(p.deductions || 0)}</td></tr></tbody></table>
@@ -443,9 +469,11 @@ document.addEventListener('click', e => {
   if (c === 'usr-add') { if (!hasPerm('usermgmt.manage')) return toast('No permission.'); return usrForm(); }
   if (c === 'usr-edit') { if (!hasPerm('usermgmt.manage')) return toast('No permission.'); return usrForm(v); }
   if (c === 'usr-del') { if (!hasPerm('usermgmt.manage')) return toast('No permission.'); const x = clientProfiles().find(c => c.id === v); if (!x) return; if (!confirm('Delete client profile "' + x.name + '"?')) return; db.clientProfiles = clientProfiles().filter(c => c.id !== v); save(); toast('Client deleted.'); render(); return; }
+  if (c === 'usr-adopt') { if (!hasPerm('usermgmt.manage')) return toast('No permission.'); return usrAdoptForm(v); }
 
   // --- staff management ---
   if (c === 'stf-add') { if (!hasPerm('staffmgmt.manage')) return toast('No permission.'); return stfForm(); }
+  if (c === 'stf-adopt') { if (!hasPerm('staffmgmt.manage')) return toast('No permission.'); return stfAdoptForm(v); }
   if (c === 'stf-edit') { if (!hasPerm('staffmgmt.manage') && v !== (admMe() || {}).id) return toast('No permission.'); return stfForm(v); }
   if (c === 'stf-perms') { if (!hasPerm('staffmgmt.manage')) return toast('No permission.'); return stfPerms(v); }
   if (c === 'stf-del') { if (!hasPerm('staffmgmt.manage')) return toast('No permission.'); const x = staffAll().find(s => s.id === v); if (!x) return; if (x.protected) return toast('This account cannot be deleted.'); if (!confirm('Permanently delete ' + x.name + '?')) return; db.staff = staffAll().filter(s => s.id !== v); save(); toast('Staff removed.'); render(); return; }
@@ -546,7 +574,7 @@ async function payslipPDF(p) {
   await loadPDF();
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
-  doc.setFontSize(16); doc.text("The Gent's Barber & Gents Grooming Center", 14, 18);
+  doc.setFontSize(16); doc.text("The Gent's Barber & Grooming Center", 14, 18);
   doc.setFontSize(11); doc.text('PAYSLIP — ' + p.month, 14, 26);
   doc.setFontSize(10);
   doc.text('Employee: ' + p.name + '  |  Role: ' + p.role + '  |  ID: ' + p.staffId, 14, 34);

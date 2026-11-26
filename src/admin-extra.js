@@ -12,7 +12,7 @@ const admF = () => {
 };
 
 function adminBody() {
-  const titles = { overview: 'Dashboard', bookings: 'Bookings', requests: 'Booking Requests', calendar: 'Calendar', branches: 'Branches', barbers: 'Barbers', services: 'Services', content: 'Content & Media', clients: 'Clients', membership: 'Membership & Wallet', reports: 'Reports', users: 'User Management', staff: 'Account Access', erp: 'Accounting & ERP', settings: 'Settings' };
+  const titles = { overview: 'Dashboard', bookings: 'Bookings', requests: 'Booking Requests', calendar: 'Calendar', branches: 'Branches', barbers: 'Barbers', services: 'Services', content: 'Content & Media', clients: 'Clients', membership: 'Membership & Wallet', reports: 'Reports', staff: 'Account Access', erp: 'Accounting & ERP', settings: 'Settings' };
   const f = branchFilter === 'all' ? db.bookings : db.bookings.filter(b => b.branch === branchFilter);
   const top = `<div class="dash-top"><div><div class="eyebrow">THE GENT’S · MANAGEMENT</div><h1>${titles[dashboardTab] || 'Dashboard'}</h1><p class="muted">All changes are saved locally.</p></div><select id="admin-branch" class="field" style="width:205px"><option value="all">All Branches</option>${db.branches.map(b => `<option value="${b.id}" ${branchFilter === b.id ? 'selected' : ''}>${esc(b.name)}</option>`).join('')}</select></div>`;
   if (!admCan(dashboardTab)) {
@@ -29,9 +29,8 @@ function adminBody() {
   if (dashboardTab === 'services') return admServices(top);
   if (dashboardTab === 'content') return admContent(top);
   if (dashboardTab === 'membership') return admMembership(top);
-  if (dashboardTab === 'clients') return admClients(top);
+  if (dashboardTab === 'clients') return admUsers(top);
   if (dashboardTab === 'reports') return admReports(f, top);
-  if (dashboardTab === 'users') return admUsers(top);
   if (dashboardTab === 'staff') return admStaff(top);
   if (dashboardTab === 'erp') return admErp(top);
   return admSettings(top);
@@ -40,14 +39,14 @@ function adminBody() {
 function dashboardFrame(role, content) {
   const admin = role === 'admin';
   const items = admin
-    ? [["overview", "Dashboard", "⌂"], ["requests", "Requests", "✉"], ["bookings", "Bookings", "▢"], ["calendar", "Calendar", "▦"], ["branches", "Branches", "⌖"], ["barbers", "Barbers", "✂"], ["services", "Services", "✧"], ["content", "Content & Media", "◈"], ["clients", "Clients", "♧"], ["membership", "Membership", "❖"], ["reports", "Reports", "▥"], ["users", "User Management", "♟"], ["staff", "Account Access", "⚑"], ["erp", "Accounting & ERP", "¤"], ["settings", "Settings", "⚙"]]
+    ? [["overview", "Dashboard", "⌂"], ["requests", "Requests", "✉"], ["bookings", "Bookings", "▢"], ["calendar", "Calendar", "▦"], ["branches", "Branches", "⌖"], ["barbers", "Barbers", "✂"], ["services", "Services", "✧"], ["content", "Content & Media", "◈"], ["clients", "Clients", "♧"], ["membership", "Membership", "❖"], ["reports", "Reports", "▥"], ["staff", "Account Access", "⚑"], ["erp", "Accounting & ERP", "¤"], ["settings", "Settings", "⚙"]]
     : [["overview", "Overview", "⌂"], ["bookings", "My Bookings", "▢"], ["membership", "Membership", "❖"], ["wallet", "Wallet", "▣"], ["rewards", "Rewards", "★"], ["notifications", "Alerts", "◔"], ["profile", "Profile", "♙"]];
   const selected = admin ? dashboardTab : (typeof clientView !== 'undefined' ? clientView : 'overview');
   const navItems = admin ? items.filter(([key]) => admCan(key)) : items;
   const nav = navItems.map(([key, title, ico]) => `<button class="${selected === key ? 'active' : ''}" data-action="${admin ? 'admin-tab' : 'client-side'}:${key}">${ico} &nbsp; ${title}</button>`).join('');
   const out = `<button data-action="adm-logout">⇥ &nbsp; Sign Out</button>`;
   const lg = (db.settings && db.settings.logo) || '';
-  return `<div class="dashboard"><aside class="side"><a class="brand" data-page="home">${lg ? `<img class="brand-logo" src="${esc(lg)}" alt="The Gent’s">` : `<div class="brand-icon">⚒</div>`}<div><div class="brand-title">The Gent’s</div><div class="brand-sub">BARBER & GENTS GROOMING CENTER</div></div></a><div class="side-nav">${nav}${out}<button data-page="home">↗ &nbsp; Visit Website</button></div></aside><div><div class="dash-mobile">${nav}${out}</div><main class="dash-main">${content}</main></div></div>`;
+  return `<div class="dashboard"><aside class="side"><a class="brand" data-page="home">${lg ? `<img class="brand-logo" src="${esc(lg)}" alt="The Gent’s">` : `<div class="brand-icon">⚒</div>`}<div><div class="brand-title">The Gent’s</div><div class="brand-sub">BARBER & GROOMING CENTER</div></div></a><div class="side-nav">${nav}${out}<button data-page="home">↗ &nbsp; Visit Website</button></div></aside><div><div class="dash-mobile">${nav}${out}</div><main class="dash-main">${content}</main></div></div>`;
 }
 
 // ---------- Overview ----------
@@ -146,7 +145,7 @@ function admDay(iso) {
 
 // ---------- Branches ----------
 function admBranches(top) {
-  return top + `<div class="panel"><div class="panel-head"><h3>Branch Directory</h3><div class="auth-actions">${ioButtons('branches', true)}${hasPerm('branches.manage') ? button('+ Add Branch', 'adm-add-branch', 'btn btn-gold btn-sm') : ''}</div></div><div class="grid grid-3">${db.branches.map(x => { const n = db.bookings.filter(b => b.branch === x.id).length; return `<div class="card"><img class="branch-photo" src="${esc(x.photo)}"><div class="card-pad"><h3>${esc(x.name)}</h3><p class="muted small">${esc(x.place)}<br>${esc(x.hours)}<br>${n} booking${n === 1 ? '' : 's'}</p>${hasPerm('branches.manage') ? `<div class="row-actions" style="margin-top:10px"><button class="btn btn-sm" data-action="adm-edit-branch:${x.id}">Edit</button><button class="btn btn-sm" data-action="adm-del-branch:${x.id}">Delete</button></div>` : ''}</div></div>`; }).join('')}</div></div>`;
+  return top + `<div class="panel"><div class="panel-head"><h3>Branch Directory</h3><div class="auth-actions">${ioButtons('branches', true)}${hasPerm('branches.manage') ? button('+ Add Branch', 'adm-add-branch', 'btn btn-gold btn-sm') : ''}</div></div><div class="grid grid-3">${db.branches.map(x => { const n = db.bookings.filter(b => b.branch === x.id).length; return `<div class="card">${x.photo?`<img class="branch-photo" src="${esc(x.photo)}">`:''}<div class="card-pad"><h3>${esc(x.name)}</h3><p class="muted small">${esc(x.place)}<br>${esc(x.hours)}<br>${n} booking${n === 1 ? '' : 's'}</p>${hasPerm('branches.manage') ? `<div class="row-actions" style="margin-top:10px"><button class="btn btn-sm" data-action="adm-edit-branch:${x.id}">Edit</button><button class="btn btn-sm" data-action="adm-del-branch:${x.id}">Delete</button></div>` : ''}</div></div>`; }).join('')}</div></div>`;
 }
 
 function admBranchForm(id) {
@@ -285,7 +284,7 @@ document.addEventListener('click', e => {
   if (c === 'adm-complete') { const b = db.bookings.find(x => x.id === v); if (b) { b.status = 'Completed'; db.notifications.unshift('Booking ' + b.id + ' completed.'); save(); toast('Booking marked completed.'); render(); } return; }
   if (c === 'adm-cancel-booking') { const b = db.bookings.find(x => x.id === v); if (!b) return; if (!confirm('Cancel this booking?')) return; b.status = 'Cancelled'; save(); toast('Booking cancelled.'); closeModal(); render(); return; }
   if (c === 'adm-del-booking') { const b = db.bookings.find(x => x.id === v); if (!b) return; if (!confirm('Permanently delete booking ' + b.id + '?')) return; db.bookings = db.bookings.filter(x => x.id !== v); save(); toast('Booking deleted.'); closeModal(); render(); return; }
-  if (c === 'adm-del-branch') { const x = db.branches.find(b => b.id === v); if (!x) return; if (db.bookings.some(b => b.branch === v)) return toast('Cannot delete: this branch has bookings.'); if (db.barbers.some(b => b.branch === v)) return toast('Cannot delete: this branch still has barbers.'); if (!confirm('Delete branch "' + x.name + '"?')) return; db.branches = db.branches.filter(b => b.id !== v); save(); toast('Branch deleted.'); render(); return; }
+  if (c === 'adm-del-branch') { const x = db.branches.find(b => b.id === v); if (!x) return; if (db.bookings.some(b => b.branch === v)) return toast('Cannot delete: this branch has bookings.'); if (db.barbers.some(b => b.branch === v)) return toast('Cannot delete: this branch still has barbers.'); if (!confirm('Delete branch "' + x.name + '"?')) return; db.branches = db.branches.filter(b => b.id !== v); db.services.forEach(s => { if (Array.isArray(s.branches)) s.branches = s.branches.filter(b => b !== v); }); save(); toast('Branch deleted.'); render(); return; }
   if (c === 'adm-del-barber') { const x = db.barbers.find(b => b.id === v); if (!x) return; if (db.bookings.some(b => b.barber === v)) return toast('Cannot delete: this barber has bookings.'); if (!confirm('Delete ' + x.name + '?')) return; db.barbers = db.barbers.filter(b => b.id !== v); save(); toast('Barber removed.'); render(); return; }
   if (c === 'adm-del-service') { const x = db.services.find(s => s.id === v); if (!x) return; if (db.bookings.some(b => b.service === v)) return toast('Cannot delete: this service has bookings.'); if (!confirm('Delete service "' + x.name + '"?')) return; db.services = db.services.filter(s => s.id !== v); save(); toast('Service deleted.'); render(); return; }
   if (c === 'adm-export') { if (!hasPerm('reports.view')) return toast('No permission.'); return admExportCSV(); }
@@ -347,7 +346,7 @@ document.addEventListener('submit', async e => {
   if (form.getAttribute('id') === 'adm-branch-form') {
     e.preventDefault(); const v = Object.fromEntries(new FormData(form));
     if (v.id) { const x = db.branches.find(b => b.id === v.id); if (x) Object.assign(x, { name: v.name, place: v.place, hours: v.hours, photo: v.photo || x.photo }); toast('Branch updated.'); }
-    else { db.branches.push({ id: v.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now().toString().slice(-4), name: v.name, place: v.place, hours: v.hours || 'Mon–Sat · 09:00–18:00', photo: v.photo || '' }); toast('Branch added.'); }
+    else { const nid = v.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now().toString().slice(-4); db.branches.push({ id: nid, name: v.name, place: v.place, hours: v.hours || 'Mon–Sat · 09:00–18:00', photo: v.photo || '' }); db.services.forEach(s => { if (Array.isArray(s.branches) && !s.branches.includes(nid)) s.branches.push(nid); }); toast('Branch added.'); }
     save(); closeModal(); render(); return;
   }
   if (form.getAttribute('id') === 'adm-barber-form') {
